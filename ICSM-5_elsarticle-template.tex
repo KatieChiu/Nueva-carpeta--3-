@@ -1,0 +1,614 @@
+\documentclass[final,11pt,3p]{elsarticle}
+
+\usepackage[spanish]{babel}
+\usepackage{graphicx}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{lineno}
+
+\newtheorem{theorem}{Teorema}
+\newtheorem{lemma}{Lema}
+\newtheorem{definition}{Definición}
+\newtheorem{remark}{Observación}
+
+\makeatletter
+\def\ps@pprintTitle{%
+ \let\@oddhead\@empty
+ \let\@evenhead\@empty
+ \def\@oddfoot{}%
+ \let\@evenfoot\@oddfoot}
+\makeatother
+
+\journal{ICSM-5}
+
+\begin{document}
+
+\begin{frontmatter}
+
+%------------------------------------------------
+% TÍTULO
+%------------------------------------------------
+
+\title{Vectorización Semántica para la Evaluación del Riesgo de Alucinaciones en Diagnósticos Médicos Asistidos por Inteligencia Artificial}
+
+%------------------------------------------------
+% AUTORES
+%------------------------------------------------
+
+\author[label1]{Katie Chiu\corref{cor1}}
+\cortext[cor1]{Autor de correspondencia}
+\ead{chiukatie17@gmail.com}
+
+\author[label2,label3]{Oscar Hernandez}
+\ead{p\_ivanov@email.mail}
+
+\address[label1]{Universidad Nacional Autónoma de Honduras, Comayagua, Honduras}
+
+%------------------------------------------------
+% RESUMEN
+%------------------------------------------------
+
+\begin{abstract}
+La integración de modelos de lenguaje de gran tamaño (LLM) en la atención primaria de salud plantea preocupaciones sobre la seguridad de las recomendaciones clínicas generadas por inteligencia artificial. Este estudio propone un marco de vectorización semántica para cuantificar el riesgo de alucinaciones en diagnósticos y tratamientos médicos generados por IA. Se evaluaron 41 casos clínicos simulados que cubren 10 síntomas de alta prevalencia frente a un ground truth clínico derivado de guías oficiales. Las respuestas de Gemini y GPT fueron transformadas en vectores semánticos utilizando S-PubMedBERT-MS-MARCO y comparadas con las referencias mediante similitud del coseno. Se desarrolló un Índice de Riesgo ponderado a partir de las puntuaciones de disimilitud diagnóstica y terapéutica, cuyo análisis ROC arrojó un AUC de 0.654 y un umbral basado en el índice de Youden de $\tau=0.113$. Entre las 82 respuestas evaluadas, la fiabilidad semántica global alcanzó 88.82\%, mientras que la validación externa mostró una alineación de 80.5\% con las evaluaciones de los especialistas. El marco propuesto ofrece un enfoque cuantitativo y reproducible para identificar discrepancias clínicamente relevantes que requieren supervisión médica.
+\end{abstract}
+
+
+%------------------------------------------------
+% PALABRAS CLAVE
+%------------------------------------------------
+
+\begin{keyword}
+
+Modelos de Lenguaje de Gran Tamaño
+\sep Detección de Alucinaciones
+\sep Similitud Semántica
+\sep Evaluación de Riesgo Clínico
+\sep Atención Primaria
+\sep Embeddings de Oraciones
+\sep Métodos Computacionales
+\sep Análisis ROC
+
+\end{keyword}
+
+\end{frontmatter}
+
+\pagestyle{empty}
+
+% Descomentar si se requiere numeración de líneas
+% \linenumbers
+
+%================================================
+% INTRODUCCIÓN
+%================================================
+
+\section{Introducción}
+\label{S:1}
+
+La adopción de la inteligencia artificial (IA), incluyendo sistemas generativos basados en modelos de lenguaje de gran tamaño (LLM), se ha acelerado en contextos relacionados con la salud, generando expectativas de apoyo en actividades clínicas y procesos de atención \cite{who2024}. En entornos con disponibilidad limitada de especialistas, como Honduras, esta integración progresiva incrementa la probabilidad de que las recomendaciones algorítmicas influyan en decisiones diagnósticas y terapéuticas antes de que existan salvaguardas suficientes que garanticen seguridad, supervisión humana y rendición de cuentas. En atención primaria, en particular, donde la demanda frecuentemente supera la disponibilidad de especialistas, los LLM han comenzado a emerger como herramientas de consulta informal: un médico general, una enfermera o incluso un paciente puede formular una consulta clínica a un sistema de IA y recibir una respuesta que, por su fluidez y aparente coherencia, resulta difícil de cuestionar sin conocimiento especializado.
+
+La preocupación central no radica en que los sistemas de IA respondan, sino en que no existe una forma sistemática de determinar cuándo una respuesta es correcta y cuándo constituye contenido plausible pero clínicamente inexacto---fenómeno que la literatura denomina alucinación. La evidencia clínica indica que un riesgo significativo de los LLM radica precisamente en su capacidad de producir información no verificada, lo cual puede traducirse en recomendaciones diagnósticas o terapéuticas inexactas y puede reforzar rutas de razonamiento clínico erróneas si las respuestas se aceptan sin una validación adecuada \cite{roustan2025}. En el dominio clínico, una alucinación no es solo un error textual: puede traducirse en un diagnóstico omitido, un tratamiento inadecuado o una urgencia no reconocida.
+
+En consecuencia, el problema central abordado en este estudio es la ausencia de un modelo de evaluación cuantitativo capaz de medir, mediante una métrica verificable, la discrepancia y el riesgo asociado entre las recomendaciones generadas por IA y las referencias clínicas validadas, particularmente en atención primaria \cite{who2024,roustan2025}. Esta brecha es consistente con las directrices de la Organización Mundial de la Salud, que enfatizan que los Estados y proveedores deben establecer estándares de evaluación, auditoría y análisis de impacto a medida que estas tecnologías se despliegan a escala, con el fin de proteger la salud pública \cite{who2024}.
+
+Este estudio propone que la vectorización semántica ofrece una vía para abordar esta brecha, al transformar el contenido textual en representaciones matemáticas comparables, permitiendo medir con precisión la discrepancia entre el contenido generado por IA y las guías clínicas establecidas. Este enfoque no reemplaza el juicio clínico; más bien lo complementa, al proporcionar una capa de auditoría cuantitativa capaz de señalar respuestas de IA que superan un umbral de discrepancia clínicamente aceptable.
+
+El objetivo general de este trabajo es evaluar la magnitud del riesgo asociado a discrepancias entre diagnósticos y tratamientos generados por modelos de lenguaje de gran tamaño y referentes clínicos validados en atención primaria, mediante el uso de técnicas de representación semántica distribuida, con el propósito de estimar su seguridad y confiabilidad en contextos asistenciales.
+
+Los objetivos específicos fueron:
+
+\begin{enumerate}
+    \item diseñar un conjunto estructurado de casos clínicos simulados correspondientes a síntomas de alta prevalencia en atención primaria;
+    
+    \item construir una base de conocimiento de referencia (ground truth) derivada de guías clínicas oficiales y validada por profesionales de la salud;
+    
+    \item generar un conjunto de respuestas de LLM utilizando un esquema de prompt estandarizado;
+    
+    \item implementar un modelo de representación vectorial para transformar el contenido diagnóstico y terapéutico en vectores semánticos comparables;
+    
+    \item desarrollar un algoritmo basado en similitud del coseno para cuantificar la discrepancia semántica entre las respuestas generadas por IA y el ground truth;
+    
+    \item definir un Índice de Riesgo y establecer umbrales operativos mediante análisis estadístico del desempeño discriminativo del modelo, utilizando la curva ROC, el área bajo la curva (AUC) y el índice de Youden; y
+    
+    \item validar el Índice de Riesgo comparando sus clasificaciones con la evaluación clínica realizada por médicos especialistas, cuantificando la alineación en la detección de casos de riesgo.
+\end{enumerate}
+
+Al combinar un ground truth clínico validado, embeddings de oraciones biomédicos, y umbrales de riesgo calibrados empíricamente, este estudio aporta una metodología reproducible y cuantificable para auditar contenido clínico generado por IA---centrada específicamente en dónde, y en qué medida, las discrepancias semánticas con referencias validadas se traducen en un riesgo clínicamente significativo, en lugar de tratar la coherencia lingüística como un indicador de seguridad clínica.
+
+%================================================
+% 2. MATERIALES Y MÉTODOS
+%================================================
+
+\section{Materiales y Métodos}
+\label{S:2}
+
+\subsection{Enfoque de Investigación y Diseño del Estudio}
+\label{S:2.1}
+
+Este estudio sigue un diseño aplicado, cuantitativo, no experimental, transeccional, analítico y comparativo. El objetivo fue desarrollar y evaluar un marco computacional para estimar el riesgo asociado a discrepancias entre las recomendaciones diagnósticas y terapéuticas generadas por modelos de lenguaje de gran tamaño (LLM) y referentes clínicos validados.
+
+El estudio no implica intervención en la atención clínica real ni manipulación de variables clínicas. En su lugar, se presentaron casos simulados de atención primaria a dos LLM distintos bajo condiciones de prompting estandarizadas. Sus respuestas se compararon posteriormente con un ground truth clínico estructurado, derivado de guías clínicas oficiales y literatura médica relevante.
+
+El marco analítico considera cuatro elementos principales: (1) el contenido diagnóstico generado por cada LLM; (2) las recomendaciones terapéuticas generadas por cada LLM; (3) el ground truth clínico correspondiente; y (4) la evaluación de seguridad clínica realizada por médicos especialistas.
+
+Las respuestas generadas se analizaron a lo largo de dos dimensiones clínicas, diagnóstico (\textit{dx}) y tratamiento (\textit{tx}), permitiendo una evaluación tanto independiente como conjunta.
+
+\subsection{Casos Clínicos y Ground Truth}
+\label{S:2.2}
+
+Los casos del estudio representaron diez síntomas de alta prevalencia comúnmente encontrados en atención primaria:
+
+\begin{itemize}
+    \item Fiebre
+    \item Tos y síntomas respiratorios
+    \item Dolor de garganta
+    \item Diarrea
+    \item Cefalea
+    \item Mareos
+    \item Dolor muscular
+    \item Erupción cutánea
+    \item Disuria
+    \item Dolor abdominal
+\end{itemize}
+
+Se incluyeron un total de 41 casos clínicos simulados en el análisis final, distribuidos en dos casos de bandera roja (\textit{red-flag}, urgentes) y dos casos básicos (no urgentes) por síntoma. Los casos representaron diferentes condiciones clínicas y niveles de gravedad potencial, incluyendo escenarios con signos de alarma (\textit{red flags}).
+
+Cada caso se estructuró utilizando información clínica estandarizada, incluyendo el síntoma principal, características relevantes del paciente, antecedentes clínicos, y hallazgos necesarios para la evaluación diagnóstica y terapéutica.
+
+El ground truth clínico se construyó a partir de guías de práctica clínica oficiales y literatura médica relevante. Para cada síntoma, la base de conocimiento de referencia incluyó diagnósticos diferenciales y recomendaciones terapéuticas basadas en evidencia.
+
+La información de referencia se organizó en unidades textuales independientes (\textit{chunks clínicos}), permitiendo que cada componente diagnóstico y terapéutico fuera transformado en un vector semántico y posteriormente comparado con el contenido correspondiente generado por el LLM.
+
+\subsection{Respuestas de los Modelos de Lenguaje}
+\label{S:2.3}
+
+Cada caso clínico simulado fue enviado de forma independiente a dos modelos de lenguaje de gran tamaño, identificados en este estudio como Gemini y GPT. Se aplicó el mismo prompt estandarizado a ambos modelos con el fin de minimizar variaciones atribuibles a la formulación del prompt y facilitar el análisis comparativo.
+
+Las respuestas generadas se almacenaron sin modificaciones manuales. Cada respuesta se dividió posteriormente en dos componentes analíticos: contenido diagnóstico (\textit{llm\_dx}) y contenido terapéutico (\textit{llm\_tx}).
+
+El conjunto de datos final consistió en 82 respuestas generadas por LLM, correspondientes a los 41 casos clínicos evaluados utilizando dos modelos.
+
+\subsection{Evaluación Clínica}
+\label{S:2.4}
+
+La seguridad clínica de cada respuesta generada fue evaluada por médicos especialistas utilizando una escala ordinal de 0 a 3:
+
+\begin{itemize}
+    \item \textbf{0}: Respuesta segura y clínicamente adecuada.
+    \item \textbf{1}: Respuesta aceptable que requiere ajustes menores.
+    \item \textbf{2}: Respuesta riesgosa.
+    \item \textbf{3}: Respuesta crítica o potencialmente dañina.
+\end{itemize}
+
+Adicionalmente, se registró un indicador binario de error crítico, donde 0 representaba la ausencia de un error crítico y 1 la presencia de un error clínico potencialmente significativo.
+
+Esta evaluación externa se utilizó como referencia para evaluar la correspondencia entre el Índice de Riesgo computacional propuesto y el juicio clínico de los especialistas.
+
+\subsection{Vectorización Semántica}
+\label{S:2.5}
+
+Los textos diagnósticos y terapéuticos, tanto del ground truth clínico como de las respuestas de los LLM, fueron transformados en representaciones numéricas utilizando el modelo de embeddings de oraciones biomédico S-PubMedBERT-MS-MARCO.
+
+El modelo se implementó a través del framework \textit{sentence-transformers}. Cada unidad textual fue mapeada a un vector de dimensión fija dentro de un espacio semántico continuo.
+
+Sea $\mathbf{v}_{LLM}$ el vector generado a partir de una respuesta del LLM y $\mathbf{v}_{GT}$ el vector asociado a la referencia correspondiente del ground truth. La similitud semántica se calculó mediante similitud del coseno.
+
+\subsection{Similitud del Coseno y Disimilitud Semántica}
+\label{S:2.6}
+
+La similitud del coseno entre una representación generada por el LLM y una representación del ground truth se calculó como:
+
+\begin{equation}
+S(\mathbf{v}_{LLM},\mathbf{v}_{GT})
+=
+\frac{
+\mathbf{v}_{LLM}\cdot\mathbf{v}_{GT}
+}{
+\|\mathbf{v}_{LLM}\|\|\mathbf{v}_{GT}\|
+}
+\label{eq:cosine}
+\end{equation}
+
+donde $S$ representa la similitud semántica entre los dos vectores.
+
+Para efectos de la estimación del riesgo, la disimilitud semántica se definió como:
+
+\begin{equation}
+D = 1-S
+\label{eq:dissimilarity}
+\end{equation}
+
+donde $D$ representa la discrepancia semántica entre la respuesta generada y su referencia clínica correspondiente.
+
+El procedimiento se aplicó de forma independiente a las dimensiones diagnóstica y terapéutica, produciendo la disimilitud diagnóstica ($disdx$) y la disimilitud terapéutica ($distx$).
+
+\subsection{Indexación y Recuperación Vectorial}
+\label{S:2.7}
+
+Los embeddings del ground truth se almacenaron en un índice vectorial implementado mediante la biblioteca FAISS. Cada embedding fue asociado a un identificador único, permitiendo rastrear la referencia textual correspondiente hasta su fuente clínica original.
+
+Para cada representación diagnóstica y terapéutica generada por el LLM, se realizó una búsqueda semántica frente a los embeddings del ground truth asociados al síntoma clínico correspondiente. Se seleccionó la referencia semánticamente más similar para el cálculo posterior de la similitud del coseno y la disimilitud semántica.
+
+Esta arquitectura permitió al sistema combinar información clínica estructurada con recuperación semántica basada en vectores, manteniendo la trazabilidad entre cada texto de referencia y su representación numérica.
+
+\subsection{Índice de Riesgo}
+\label{S:2.8}
+
+Las disimilitudes diagnóstica y terapéutica se combinaron en un Índice de Riesgo ponderado. Se evaluaron cuatro combinaciones de pesos mediante análisis ROC sobre el conjunto completo de 82 respuestas, utilizando el estado binario de bandera roja (\textit{red-flag}) de cada caso como variable de referencia. Se seleccionó la combinación que produjo el mayor AUC. A partir de este análisis empírico, el índice se definió como:
+
+\begin{equation}
+R_i = 0.30\,disdx + 0.70\,distx
+\label{eq:risk-index}
+\end{equation}
+
+donde $R_i$ representa el Índice de Riesgo para la respuesta $i$, $disdx$ representa la disimilitud semántica diagnóstica, y $distx$ representa la disimilitud semántica terapéutica.
+
+El mayor peso asignado al componente terapéutico refleja la mayor variabilidad y las discrepancias más pronunciadas observadas en la dimensión terapéutica entre las respuestas clínicas evaluadas, en comparación con la dimensión diagnóstica.
+
+\subsection{Evaluación de Alineación Clínica}
+\label{S:2.9}
+
+La correspondencia entre el Índice de Riesgo computacional y el juicio clínico de los médicos especialistas se evaluó mediante una métrica de alineación clínica, definida como la proporción de casos en los que la clasificación binaria de riesgo del algoritmo coincidió con la evaluación del especialista:
+
+\begin{equation}
+Alineación =
+\frac{VP+VN}{VP+VN+FP+FN}
+\label{eq:alignment}
+\end{equation}
+
+Esta métrica es matemáticamente equivalente a la métrica de accuracy utilizada en el entrenamiento y evaluación de modelos de aprendizaje automático supervisado, en la cual el algoritmo actúa como "predictor" y la evaluación del especialista sirve como etiqueta de referencia externa.
+
+Este enfoque se adoptó porque la evaluación médica no produjo una clasificación binaria urgente/básico, sino una puntuación ordinal de seguridad clínica (0--3, según se definió en la Sección~\ref{S:2.4}). La métrica de alineación mide si el especialista habría señalado el mismo caso que el algoritmo, independientemente del nivel específico de gravedad asignado, y constituye por tanto una medida global de concordancia entre criterios, más que una medida de detección de una clase específica.
+
+\subsection{Clasificación de Riesgo y Análisis ROC}
+\label{S:2.10}
+
+Para la evaluación operativa, el Índice de Riesgo se convirtió en una clasificación binaria de acuerdo con un umbral $\tau$:
+
+\begin{equation}
+\hat{Y}_i =
+\begin{cases}
+1, & \text{si } R_i \geq \tau,\\
+0, & \text{si } R_i < \tau.
+\end{cases}
+\label{eq:binary-risk}
+\end{equation}
+
+La clasificación binaria se comparó con la clasificación de referencia clínica (basada en el estado de bandera roja de cada caso) mediante una matriz de confusión compuesta por verdaderos positivos (VP), falsos positivos (FP), verdaderos negativos (VN) y falsos negativos (FN).
+
+La curva de característica operativa del receptor (ROC) se utilizó para evaluar el desempeño discriminativo del Índice de Riesgo a través de los posibles umbrales. El área bajo la curva ROC (AUC) se calculó como una medida global de discriminación.
+
+El índice de Youden se utilizó para identificar el umbral operativo según:
+
+\begin{equation}
+J = Sensibilidad + Especificidad - 1
+\label{eq:youden}
+\end{equation}
+
+El umbral seleccionado en el análisis final fue:
+
+\begin{equation}
+\tau = 0.113
+\label{eq:threshold}
+\end{equation}
+
+El desempeño de clasificación se caracterizó posteriormente mediante sensibilidad, precisión, especificidad y puntaje F1.
+
+\subsection{Métricas de Desempeño}
+\label{S:2.11}
+
+La sensibilidad se calculó como:
+
+\begin{equation}
+Sensibilidad =
+\frac{VP}{VP+FN}
+\label{eq:sensitivity}
+\end{equation}
+
+La precisión se calculó como:
+
+\begin{equation}
+Precisión =
+\frac{VP}{VP+FP}
+\label{eq:precision}
+\end{equation}
+
+La especificidad se calculó como:
+
+\begin{equation}
+Especificidad =
+\frac{VN}{VN+FP}
+\label{eq:specificity}
+\end{equation}
+
+El puntaje F1 se calculó como la media armónica entre precisión y sensibilidad:
+
+\begin{equation}
+F1 =
+2\frac{Precisión \cdot Sensibilidad}
+{Precisión + Sensibilidad}
+\label{eq:f1}
+\end{equation}
+
+Estas métricas se utilizaron para caracterizar la capacidad del índice propuesto para identificar respuestas asociadas a un mayor riesgo clínico.
+
+\subsection{Entorno de Implementación}
+\label{S:2.12}
+
+El marco computacional se implementó utilizando Python 3.12.6. La manipulación de datos y el procesamiento numérico se realizaron mediante \textbf{pandas} y \textbf{NumPy}.
+
+La vectorización semántica se implementó utilizando la biblioteca \textbf{sentence-transformers} y el modelo de embeddings biomédico S-PubMedBERT-MS-MARCO. La indexación vectorial y la recuperación semántica se realizaron mediante \textbf{FAISS}.
+
+Los cálculos de similitud del coseno y las métricas de clasificación (sensibilidad, precisión, especificidad, puntaje F1) se implementaron mediante \textbf{scikit-learn}. Las representaciones gráficas de los resultados se generaron mediante \textbf{Matplotlib}.
+
+La combinación de estos componentes produjo un pipeline computacional reproducible para transformar texto clínico en representaciones semánticas, calcular discrepancias, construir el Índice de Riesgo, y comparar las clasificaciones computacionales con las evaluaciones clínicas de los especialistas. El pipeline completo procesó las 82 respuestas en 54.3 segundos, equivalente a aproximadamente 0.66 segundos por respuesta.
+
+% ============================================================
+% 3. RESULTADOS
+% ============================================================
+
+\section{Resultados}
+\label{S:3}
+
+\subsection{Evaluación Clínica de las Respuestas de los LLM}
+\label{S:3.1}
+
+Se analizaron un total de 41 casos clínicos simulados de atención primaria. 
+Para cada caso, las respuestas se generaron de forma independiente mediante dos 
+modelos de lenguaje de gran tamaño (LLM), resultando en un total de 82 respuestas 
+generadas por LLM. Cada respuesta se evaluó de acuerdo con la escala de seguridad 
+clínica predefinida, considerando los componentes diagnóstico y terapéutico de 
+la respuesta generada.
+
+La evaluación clínica clasificó cada respuesta en una de cuatro categorías 
+ordinales: segura y adecuada, aceptable con ajustes menores, riesgosa, o crítica/
+potencialmente dañina. Adicionalmente, se utilizó una variable binaria de error 
+crítico para identificar respuestas que contenían discrepancias clínicamente 
+relevantes.
+
+% ------------------------------------------------------------
+% FIGURA 1 - Distribución de la evaluación clínica
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.85\textwidth]{figures/results/clinical_evaluation_distribution.pdf}
+    \caption{Distribución de las puntuaciones de evaluación clínica entre las 82 respuestas generadas por LLM.}
+    \label{fig:clinical-evaluation-distribution}
+\end{figure}
+
+La Figura~\ref{fig:clinical-evaluation-distribution} presenta la 
+distribución de las puntuaciones de evaluación clínica entre las 
+respuestas analizadas. Los resultados muestran la proporción de 
+respuestas clasificadas de acuerdo con la escala de seguridad clínica 
+de cuatro niveles.
+
+
+\subsection{Similitud y Disimilitud Semántica}
+\label{S:3.2}
+
+La comparación semántica entre las respuestas generadas por los LLM y el 
+ground truth clínicamente validado se realizó por separado para los 
+componentes diagnóstico y terapéutico. Esto permitió distinguir las 
+discrepancias relacionadas con el diagnóstico propuesto de aquellas 
+asociadas al tratamiento o manejo clínico recomendado.
+
+Los valores de disimilitud semántica resultantes se utilizaron 
+posteriormente como insumos para el Índice de Riesgo propuesto.
+
+% ------------------------------------------------------------
+% FIGURA 2 - Disimilitud diagnóstica vs. terapéutica
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.90\textwidth]{figures/results/diagnostic_therapeutic_dissimilarity.pdf}
+    \caption{Comparación de la disimilitud semántica diagnóstica y terapéutica entre las respuestas de LLM analizadas.}
+    \label{fig:diagnostic-therapeutic-dissimilarity}
+\end{figure}
+
+Como se muestra en la Fig.~\ref{fig:diagnostic-therapeutic-dissimilarity}, 
+los componentes diagnóstico y terapéutico presentaron distintos niveles de 
+discrepancia semántica respecto al ground truth clínico. El componente 
+terapéutico se consideró por separado porque las discrepancias en las 
+recomendaciones de tratamiento pueden tener un efecto directo en la 
+seguridad clínica.
+
+
+\subsection{Distribución del Índice de Riesgo}
+\label{S:3.3}
+
+El Índice de Riesgo propuesto combina las medidas de disimilitud semántica 
+diagnóstica y terapéutica utilizando el esquema de ponderación predefinido. 
+Para cada respuesta de LLM, el valor resultante representa el nivel estimado 
+de discrepancia semántica y clínica respecto al ground truth correspondiente.
+
+% ------------------------------------------------------------
+% FIGURA 3 - Distribución del Índice de Riesgo
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.85\textwidth]{figures/results/risk_index_distribution.pdf}
+    \caption{Distribución del Índice de Riesgo propuesto entre las respuestas analizadas.}
+    \label{fig:risk-index-distribution}
+\end{figure}
+
+La Figura~\ref{fig:risk-index-distribution} muestra la distribución del 
+Índice de Riesgo obtenido para las 82 respuestas generadas por LLM. La 
+distribución ilustra la variabilidad en el riesgo estimado asociado a los 
+distintos casos clínicos y respuestas de los modelos.
+
+
+\subsection{Índice de Riesgo y Evaluación Clínica}
+\label{S:3.4}
+
+Para examinar la relación entre el Índice de Riesgo semántico y la 
+evaluación clínica, los valores de riesgo resultantes se compararon con la 
+evaluación clínica ordinal asignada a cada respuesta. Esta comparación 
+descriptiva permitió determinar si una mayor disimilitud semántica se 
+asociaba con evaluaciones clínicas menos favorables por parte de los 
+especialistas.
+
+% ------------------------------------------------------------
+% FIGURA 4 - Índice de Riesgo vs. puntuación clínica
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.90\textwidth]{figures/results/risk_index_vs_clinical_score.pdf}
+    \caption{Relación entre el Índice de Riesgo y la puntuación de evaluación clínica.}
+    \label{fig:risk-vs-clinical}
+\end{figure}
+
+La Figura~\ref{fig:risk-vs-clinical} ilustra la relación entre el 
+Índice de Riesgo calculado y la evaluación clínica. Esta comparación se 
+utilizó para determinar si una mayor discrepancia semántica se asociaba 
+con evaluaciones clínicas menos favorables.
+
+
+\subsection{Análisis ROC y Umbral de Riesgo}
+\label{S:3.5}
+
+El Índice de Riesgo se evaluó adicionalmente como una medida binaria de 
+detección de riesgo. El análisis ROC se utilizó para evaluar la capacidad 
+del índice propuesto para discriminar entre respuestas clasificadas como 
+de alto riesgo y aquellas no clasificadas como de alto riesgo, de acuerdo 
+con la referencia clínica.
+
+El área bajo la curva ROC (AUC) resultante fue de 0.654. El umbral 
+seleccionado mediante el estadístico J de Youden fue $\tau = 0.113$.
+
+% ------------------------------------------------------------
+% FIGURA 5 - Curva ROC
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.80\textwidth]{figures/results/roc_curve.pdf}
+    \caption{Curva de característica operativa del receptor (ROC) del Índice de Riesgo propuesto. El área bajo la curva fue de 0.654.}
+    \label{fig:roc-curve}
+\end{figure}
+
+La curva ROC se presenta en la Fig.~\ref{fig:roc-curve}. El AUC obtenido 
+indica el desempeño discriminativo del Índice de Riesgo a través del rango 
+de posibles umbrales de clasificación. El umbral seleccionado de 
+$\tau = 0.113$ se utilizó posteriormente para la clasificación binaria de riesgo.
+
+
+\subsection{Desempeño de la Clasificación Binaria}
+\label{S:3.6}
+
+Utilizando el umbral $\tau = 0.113$, cada respuesta se clasificó como de 
+alto riesgo o no de alto riesgo. Las clasificaciones resultantes se 
+compararon con la referencia clínica binaria para obtener la matriz de 
+confusión y calcular las métricas de desempeño correspondientes.
+
+% ------------------------------------------------------------
+% FIGURA 6 - Matriz de confusión
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.65\textwidth]{figures/results/confusion_matrix.pdf}
+    \caption{Matriz de confusión obtenida utilizando el umbral del Índice de Riesgo $\tau = 0.113$.}
+    \label{fig:confusion-matrix}
+\end{figure}
+
+La Figura~\ref{fig:confusion-matrix} presenta la matriz de confusión 
+resultante. El desempeño de la clasificación se evaluó mediante precisión, 
+especificidad, sensibilidad y puntaje F1.
+
+
+% ------------------------------------------------------------
+% TABLA - Métricas de desempeño
+% ------------------------------------------------------------
+
+\begin{table}[htpb]
+    \centering
+    \caption{Métricas de desempeño del Índice de Riesgo propuesto.}
+    \label{tab:performance-metrics}
+    
+    \begin{tabular}{lc}
+        \hline
+        \textbf{Métrica} & \textbf{Valor} \\
+        \hline
+        AUC & 0.654 \\
+        Umbral ($\tau$) & 0.113 \\
+        Precisión & 72.4\% \\
+        Especificidad & 81.0\% \\
+        Sensibilidad & 52.5\% \\
+        Puntaje F1 & 60.9\% \\
+        \hline
+    \end{tabular}
+\end{table}
+
+La Tabla~\ref{tab:performance-metrics} resume las principales métricas 
+de desempeño de clasificación obtenidas con el Índice de Riesgo propuesto.
+
+
+\subsection{Comparación entre los LLM}
+\label{S:3.7}
+
+Los dos LLM evaluados se compararon utilizando las medidas semánticas y 
+clínicas obtenidas para sus respectivas respuestas. La comparación 
+consideró la disimilitud diagnóstica y terapéutica, los valores del 
+Índice de Riesgo, y los resultados de la evaluación clínica.
+
+% ------------------------------------------------------------
+% FIGURA 7 - Comparación entre modelos
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.90\textwidth]{figures/results/model_comparison.pdf}
+    \caption{Comparación de las métricas semánticas y de evaluación clínica entre los dos LLM evaluados.}
+    \label{fig:model-comparison}
+\end{figure}
+
+La Figura~\ref{fig:model-comparison} presenta la comparación entre los 
+dos modelos evaluados. Los resultados ofrecen una visión específica por 
+modelo de la discrepancia semántica y la evaluación clínica obtenidas a 
+lo largo de los casos analizados.
+
+
+\subsection{Fiabilidad Semántica Global}
+\label{S:3.8}
+
+A través de las respuestas analizadas, la fiabilidad semántica global 
+obtenida mediante el marco de evaluación propuesto fue de 88.82\%. Este 
+valor resume la concordancia semántica entre las respuestas generadas y 
+las referencias clínicas correspondientes, de acuerdo con la medida de 
+fiabilidad definida en este estudio.
+
+% ------------------------------------------------------------
+% FIGURA 8 - Fiabilidad global
+% ------------------------------------------------------------
+
+\begin{figure}[htpb]
+    \centering
+    % Reemplazar con el archivo de figura final
+    \includegraphics[width=0.80\textwidth]{figures/results/overall_semantic_reliability.pdf}
+    \caption{Fiabilidad semántica global obtenida para las respuestas de LLM analizadas.}
+    \label{fig:overall-reliability}
+\end{figure}
+
+El resultado global se ilustra en la Fig.~\ref{fig:overall-reliability}.
+El valor obtenido ofrece un resumen global de la concordancia semántica 
+entre el contenido generado por los LLM y el ground truth clínico.
+
+%================================================
+% REFERENCIAS
+%================================================
+
+\bibliographystyle{elsarticle-num-names}
+\bibliography{sample}
+
+\end{document}

@@ -1,0 +1,52 @@
+This is BibTeX, Version 0.99e
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: ICSM-5_elsarticle-template.aux
+Reallocating 'name_of_file' (item size: 1) to 21 items.
+The style file: elsarticle-num-names.bst
+Reallocating 'name_of_file' (item size: 1) to 7 items.
+Database file #1: sample.bib
+Warning--entry type for "who2024" isn't style-file defined
+--line 2 of file sample.bib
+Reallocating 'singl_function' (item size: 4) to 100 items.
+You've used 2 entries,
+            2918 wiz_defined-function locations,
+            639 strings with 5578 characters,
+and the built_in function-call counts, 1080 in all, are:
+= -- 85
+> -- 29
+< -- 2
++ -- 13
+- -- 9
+* -- 113
+:= -- 164
+add.period$ -- 5
+call.type$ -- 2
+change.case$ -- 13
+chr.to.int$ -- 2
+cite$ -- 2
+duplicate$ -- 81
+empty$ -- 80
+format.name$ -- 15
+if$ -- 195
+int.to.chr$ -- 1
+int.to.str$ -- 1
+missing$ -- 14
+newline$ -- 23
+num.names$ -- 8
+pop$ -- 26
+preamble$ -- 1
+purify$ -- 13
+quote$ -- 0
+skip$ -- 23
+stack$ -- 0
+substring$ -- 44
+swap$ -- 51
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 18
+warning$ -- 0
+while$ -- 7
+width$ -- 0
+write$ -- 40
+(There was 1 warning)
